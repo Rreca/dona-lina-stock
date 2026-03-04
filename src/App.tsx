@@ -427,7 +427,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <BrowserRouter basename="/dona-lina-stock">
+      <BrowserRouter>
         <div className="app">
           <a href="#main-content" className="skip-link">
             Saltar al contenido principal

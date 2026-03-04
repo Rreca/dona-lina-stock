@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: command === 'build' ? '/dona-lina-stock/' : '/', // GitHub Pages base path for production, root for dev
+  base: '/', // Serve from root
   build: {
     outDir: 'dist',
     sourcemap: true,
