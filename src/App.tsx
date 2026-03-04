@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation, ProtectedRoute, ErrorBoundary, ToastContainer, LoadingSpinner } from './components';
 import { LoginScreen } from './screens';
 import { authService } from './services/auth';
@@ -427,7 +427,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      <HashRouter>
         <div className="app">
           <a href="#main-content" className="skip-link">
             Saltar al contenido principal
@@ -512,7 +512,7 @@ function App() {
           </main>
           <ToastContainer toasts={toasts} onClose={handleToastClose} />
         </div>
-      </BrowserRouter>
+      </HashRouter>
     </ErrorBoundary>
   );
 }
