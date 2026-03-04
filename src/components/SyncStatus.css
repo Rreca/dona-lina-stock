@@ -1,0 +1,91 @@
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.sync-status__icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.sync-status__text {
+  font-weight: 500;
+}
+
+.sync-status__time {
+  color: #666;
+  font-size: 0.8125rem;
+}
+
+.sync-status__pending-count {
+  color: #f57c00;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.sync-status__error-message {
+  color: #d32f2f;
+  font-size: 0.8125rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-status__retry-button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sync-status__retry-button:hover {
+  background-color: #1565c0;
+}
+
+.sync-status__retry-button:active {
+  background-color: #0d47a1;
+}
+
+/* Status-specific styles */
+.sync-status--saved {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.sync-status--saving {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.sync-status--saving .sync-status__icon {
+  animation: spin 1s linear infinite;
+}
+
+.sync-status--pending {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.sync-status--error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

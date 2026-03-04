@@ -1,0 +1,63 @@
+.error-message-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.error-message-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.error-message-content {
+  flex: 1;
+}
+
+.error-message-text {
+  margin: 0 0 12px 0;
+  color: #856404;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.error-message-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-text {
+  background: transparent;
+  border: none;
+  color: #856404;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  text-decoration: underline;
+}
+
+.btn-text:hover {
+  color: #533f03;
+}
+
+/* Error variant for critical errors */
+.error-message-container.critical {
+  background: #f8d7da;
+  border-color: #f5c6cb;
+}
+
+.error-message-container.critical .error-message-text {
+  color: #721c24;
+}
+
+.error-message-container.critical .btn-text {
+  color: #721c24;
+}
+
+.error-message-container.critical .btn-text:hover {
+  color: #491217;
+}
