@@ -2,9 +2,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
+export default defineConfig(() => ({
   plugins: [react()],
-  base: '/', // Serve from root
+  base: './', // Use relative paths for GitHub Pages
   build: {
     outDir: 'dist',
     sourcemap: true,
