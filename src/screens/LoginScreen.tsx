@@ -25,12 +25,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       return;
     }
 
-    // Special case: redirect to nudos if both fields contain "nudos"
-    if (token.trim().toLowerCase() === 'nudos' && gistId.trim().toLowerCase() === 'nudos') {
-      window.location.href = '/nudos/index.html';
-      return;
-    }
-
     setLoading(true);
     try {
       await onLogin(token.trim(), gistId.trim());
