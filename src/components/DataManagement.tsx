@@ -5,6 +5,7 @@ import { BackupService } from '../services/backup-service';
 import { csvExportService, type CSVColumn } from '../services/csv-export';
 import { csvImportService, type ConflictResolution } from '../services/csv-import';
 import { dataClearingService } from '../services/data-clearing';
+import { syncToGist } from '../services/app-sync';
 import './DataManagement.css';
 
 interface DataManagementProps {
@@ -157,7 +158,7 @@ export function DataManagement({
       localStorage.setItem('settings', JSON.stringify(backup.settings));
       localStorage.setItem('meta', JSON.stringify(backup.meta));
 
-      // Clear IndexedDB cache to force fresh sync
+      // Clear IndexedDB cache to force fresh data
       try {
         const databases = await window.indexedDB.databases();
         for (const db of databases) {
@@ -169,7 +170,26 @@ export function DataManagement({
         console.warn('Could not clear IndexedDB:', e);
       }
 
-      alert('✓ Backup importado exitosamente. La página se recargará y los datos se sincronizarán a GitHub Gist.');
+      // If authenticated, sync the backup data to Gist immediately
+      if (token && gistId) {
+        try {
+          await syncToGist(token, {
+            products: backup.products,
+            suppliers: backup.suppliers,
+            movements: backup.movements,
+            purchases: backup.purchases,
+            settings: backup.settings,
+            meta: backup.meta,
+          });
+          alert('✓ Backup importado y sincronizado exitosamente. La página se recargará.');
+        } catch (syncError) {
+          console.error('Error syncing to Gist:', syncError);
+          alert('✓ Backup importado localmente. Error al sincronizar con Gist: ' + (syncError instanceof Error ? syncError.message : 'Error desconocido') + '\n\nLa página se recargará.');
+        }
+      } else {
+        alert('✓ Backup importado exitosamente. La página se recargará.');
+      }
+
       window.location.reload();
     } catch (error) {
       console.error('Failed to import backup:', error);
