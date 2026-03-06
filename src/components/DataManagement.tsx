@@ -57,6 +57,9 @@ export function DataManagement({
   const [conflictResolution, setConflictResolution] = useState<ConflictResolution>('skip');
   const [importResult, setImportResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const backupFileInputRef = useRef<HTMLInputElement>(null);
+  const [importingBackup, setImportingBackup] = useState(false);
+  const [backupPreview, setBackupPreview] = useState<any>(null);
   const [storageInfo, setStorageInfo] = useState<{ usage?: number; quota?: number; usagePercentage?: number }>({});
   const [showStorageInfo, setShowStorageInfo] = useState(false);
 
@@ -81,6 +84,79 @@ export function DataManagement({
       console.error('Failed to export backup:', error);
       alert('Error al exportar backup: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     }
+  };
+
+  const handleImportBackupClick = () => {
+    backupFileInputRef.current?.click();
+  };
+
+  const handleBackupFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportingBackup(true);
+    setBackupPreview(null);
+
+    try {
+      const content = await file.text();
+      const backup = BackupService.parseBackup(content);
+      
+      // Create preview
+      setBackupPreview({
+        version: backup.version,
+        exportedAt: backup.exportedAt,
+        productsCount: backup.products.length,
+        suppliersCount: backup.suppliers.length,
+        movementsCount: backup.movements.length,
+        purchasesCount: backup.purchases.length,
+        backup: backup,
+      });
+    } catch (error) {
+      console.error('Failed to read backup file:', error);
+      alert('Error al leer archivo de backup: ' + (error instanceof Error ? error.message : 'Archivo inválido'));
+    } finally {
+      setImportingBackup(false);
+      // Reset file input
+      if (backupFileInputRef.current) {
+        backupFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleConfirmBackupImport = async () => {
+    if (!backupPreview || !backupPreview.backup) {
+      return;
+    }
+
+    if (!confirm('⚠️ ADVERTENCIA: Esto reemplazará TODOS tus datos actuales con los del backup. ¿Estás seguro?')) {
+      return;
+    }
+
+    setImportingBackup(true);
+
+    try {
+      const backup = backupPreview.backup;
+      
+      // Store all data in localStorage
+      localStorage.setItem('products', JSON.stringify(backup.products));
+      localStorage.setItem('suppliers', JSON.stringify(backup.suppliers));
+      localStorage.setItem('movements', JSON.stringify(backup.movements));
+      localStorage.setItem('purchases', JSON.stringify(backup.purchases));
+      localStorage.setItem('settings', JSON.stringify(backup.settings));
+      localStorage.setItem('meta', JSON.stringify(backup.meta));
+
+      alert('✓ Backup importado exitosamente. La página se recargará.');
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to import backup:', error);
+      alert('Error al importar backup: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setImportingBackup(false);
+    }
+  };
+
+  const handleCancelBackupImport = () => {
+    setBackupPreview(null);
   };
 
   const handleColumnToggle = (column: CSVColumn) => {
@@ -217,6 +293,82 @@ export function DataManagement({
         <button className="btn-primary" onClick={handleExportBackup}>
           📦 Exportar Backup
         </button>
+      </section>
+
+      {/* Import Backup */}
+      <section className="data-section">
+        <h4>Importar Backup Completo</h4>
+        <p className="section-description">
+          Restaura todos tus datos desde un archivo de backup previamente exportado.
+        </p>
+
+        <input
+          ref={backupFileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleBackupFileSelect}
+          style={{ display: 'none' }}
+        />
+
+        {!backupPreview && (
+          <button className="btn-primary" onClick={handleImportBackupClick} disabled={importingBackup}>
+            {importingBackup ? 'Cargando...' : '📥 Seleccionar Archivo de Backup'}
+          </button>
+        )}
+
+        {/* Backup Preview */}
+        {backupPreview && (
+          <div className="import-preview">
+            <h5>Vista Previa del Backup</h5>
+            
+            <div className="preview-stats">
+              <div className="stat">
+                <span className="stat-label">Versión:</span>
+                <span className="stat-value">{backupPreview.version}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">Exportado:</span>
+                <span className="stat-value">{new Date(backupPreview.exportedAt).toLocaleString('es-AR')}</span>
+              </div>
+            </div>
+
+            <div className="preview-stats">
+              <div className="stat stat-info">
+                <span className="stat-label">Productos:</span>
+                <span className="stat-value">{backupPreview.productsCount}</span>
+              </div>
+              <div className="stat stat-info">
+                <span className="stat-label">Proveedores:</span>
+                <span className="stat-value">{backupPreview.suppliersCount}</span>
+              </div>
+              <div className="stat stat-info">
+                <span className="stat-label">Movimientos:</span>
+                <span className="stat-value">{backupPreview.movementsCount}</span>
+              </div>
+              <div className="stat stat-info">
+                <span className="stat-label">Compras:</span>
+                <span className="stat-value">{backupPreview.purchasesCount}</span>
+              </div>
+            </div>
+
+            <div className="alert alert-warning">
+              ⚠️ ADVERTENCIA: Importar este backup reemplazará TODOS tus datos actuales. Esta acción no se puede deshacer.
+            </div>
+
+            <div className="preview-actions">
+              <button
+                className="btn-warning"
+                onClick={handleConfirmBackupImport}
+                disabled={importingBackup}
+              >
+                {importingBackup ? 'Importando...' : '⚠️ Confirmar Importación'}
+              </button>
+              <button className="btn-secondary" onClick={handleCancelBackupImport} disabled={importingBackup}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Export CSV */}
