@@ -177,12 +177,12 @@ export function DataManagement({
 
   const handleDeleteGistData = async () => {
     // First confirmation
-    if (!confirm('⚠️ PRIMERA CONFIRMACIÓN: ¿Estás seguro de que querés borrar TODOS los datos del GitHub Gist?')) {
+    if (!confirm('⚠️ PRIMERA CONFIRMACIÓN: ¿Estás seguro de que querés borrar los datos de Doña Lina Stock del GitHub Gist?')) {
       return;
     }
 
     // Second confirmation with typing
-    const confirmation = prompt('⚠️ SEGUNDA CONFIRMACIÓN: Escribí "BORRAR" (en mayúsculas) para confirmar que querés borrar todos los datos del Gist:');
+    const confirmation = prompt('⚠️ SEGUNDA CONFIRMACIÓN: Escribí "BORRAR" (en mayúsculas) para confirmar:');
     if (confirmation !== 'BORRAR') {
       alert('Operación cancelada. No se borraron los datos.');
       return;
@@ -199,8 +199,50 @@ export function DataManagement({
         return;
       }
 
-      // Delete all files from the Gist by setting them to null
-      const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+      // First, read the Gist to see what files exist
+      const readResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      });
+
+      if (!readResponse.ok) {
+        throw new Error(`Error al leer Gist: ${readResponse.statusText}`);
+      }
+
+      const gistData = await readResponse.json();
+      const existingFiles = Object.keys(gistData.files);
+
+      // Define files used by Doña Lina Stock
+      const donaLinaFiles = [
+        'products.json',
+        'suppliers.json',
+        'meta.json',
+      ];
+
+      // Add movement and purchase files that exist
+      const filesToDelete: Record<string, null> = {};
+      
+      for (const filename of existingFiles) {
+        // Check if it's a Doña Lina Stock file
+        if (
+          donaLinaFiles.includes(filename) ||
+          filename.startsWith('movements_') ||
+          filename.startsWith('purchases_')
+        ) {
+          filesToDelete[filename] = null;
+        }
+      }
+
+      if (Object.keys(filesToDelete).length === 0) {
+        alert('No se encontraron archivos de Doña Lina Stock en el Gist.');
+        return;
+      }
+
+      // Delete only Doña Lina Stock files
+      const deleteResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -208,35 +250,15 @@ export function DataManagement({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          files: {
-            'products.json': null,
-            'suppliers.json': null,
-            'meta.json': null,
-            // Delete all possible movement files
-            ...Object.fromEntries(
-              Array.from({ length: 24 }, (_, i) => {
-                const year = 2024 + Math.floor(i / 12);
-                const month = String((i % 12) + 1).padStart(2, '0');
-                return [`movements_${year}_${month}.json`, null];
-              })
-            ),
-            // Delete all possible purchase files
-            ...Object.fromEntries(
-              Array.from({ length: 24 }, (_, i) => {
-                const year = 2024 + Math.floor(i / 12);
-                const month = String((i % 12) + 1).padStart(2, '0');
-                return [`purchases_${year}_${month}.json`, null];
-              })
-            ),
-          }
+          files: filesToDelete
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Error al borrar Gist: ${response.statusText}`);
+      if (!deleteResponse.ok) {
+        throw new Error(`Error al borrar archivos: ${deleteResponse.statusText}`);
       }
 
-      alert('✓ Datos del Gist borrados exitosamente. Ahora podés importar el backup.');
+      alert(`✓ Se borraron ${Object.keys(filesToDelete).length} archivos de Doña Lina Stock del Gist. Otros archivos (como nudos.json) se mantuvieron intactos.`);
     } catch (error) {
       console.error('Failed to delete Gist data:', error);
       alert('Error al borrar datos del Gist: ' + (error instanceof Error ? error.message : 'Error desconocido'));
