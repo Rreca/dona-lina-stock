@@ -138,8 +138,16 @@ export function DataManagement({
     try {
       const backup = backupPreview.backup;
       
-      // Clear all existing data first
+      // Save auth credentials before clearing
+      const token = localStorage.getItem('github_token');
+      const gistId = localStorage.getItem('gist_id');
+      
+      // Clear all existing data
       localStorage.clear();
+      
+      // Restore auth credentials
+      if (token) localStorage.setItem('github_token', token);
+      if (gistId) localStorage.setItem('gist_id', gistId);
       
       // Store all data from backup in localStorage
       localStorage.setItem('products', JSON.stringify(backup.products));
@@ -161,7 +169,7 @@ export function DataManagement({
         console.warn('Could not clear IndexedDB:', e);
       }
 
-      alert('✓ Backup importado exitosamente. La página se recargará.');
+      alert('✓ Backup importado exitosamente. La página se recargará y los datos se sincronizarán a GitHub Gist.');
       window.location.reload();
     } catch (error) {
       console.error('Failed to import backup:', error);
@@ -407,7 +415,7 @@ export function DataManagement({
       <section className="data-section">
         <h4>Importar Backup Completo</h4>
         <p className="section-description">
-          Restaura todos tus datos desde un archivo de backup. IMPORTANTE: Después de importar, deberás volver a iniciar sesión para sincronizar los datos a GitHub Gist.
+          Restaura todos tus datos desde un archivo de backup. Los datos se importarán localmente y se sincronizarán automáticamente a GitHub Gist si estás autenticado.
         </p>
 
         <div className="alert alert-info" style={{ marginBottom: '15px' }}>
@@ -477,12 +485,12 @@ export function DataManagement({
               <br/>
               1. Los datos se guardarán en tu navegador
               <br/>
-              2. Deberás volver a iniciar sesión con tu token de GitHub
+              2. La página se recargará automáticamente
               <br/>
-              3. Los datos se sincronizarán automáticamente a GitHub Gist
+              3. Los datos se sincronizarán automáticamente a GitHub Gist (si estás autenticado)
               <br/>
               <br/>
-              <strong>IMPORTANTE:</strong> Si tenés datos más recientes en GitHub Gist, se perderán al sincronizar el backup.
+              <strong>RECOMENDACIÓN:</strong> Si querés reemplazar completamente los datos del Gist, primero usá el botón "Borrar Datos del GitHub Gist" de arriba.
             </div>
 
             <div className="preview-actions">
