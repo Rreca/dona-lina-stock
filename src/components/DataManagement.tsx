@@ -60,6 +60,7 @@ export function DataManagement({
   const backupFileInputRef = useRef<HTMLInputElement>(null);
   const [importingBackup, setImportingBackup] = useState(false);
   const [backupPreview, setBackupPreview] = useState<any>(null);
+  const [deletingGist, setDeletingGist] = useState(false);
   const [storageInfo, setStorageInfo] = useState<{ usage?: number; quota?: number; usagePercentage?: number }>({});
   const [showStorageInfo, setShowStorageInfo] = useState(false);
 
@@ -172,6 +173,76 @@ export function DataManagement({
 
   const handleCancelBackupImport = () => {
     setBackupPreview(null);
+  };
+
+  const handleDeleteGistData = async () => {
+    // First confirmation
+    if (!confirm('⚠️ PRIMERA CONFIRMACIÓN: ¿Estás seguro de que querés borrar TODOS los datos del GitHub Gist?')) {
+      return;
+    }
+
+    // Second confirmation with typing
+    const confirmation = prompt('⚠️ SEGUNDA CONFIRMACIÓN: Escribí "BORRAR" (en mayúsculas) para confirmar que querés borrar todos los datos del Gist:');
+    if (confirmation !== 'BORRAR') {
+      alert('Operación cancelada. No se borraron los datos.');
+      return;
+    }
+
+    setDeletingGist(true);
+
+    try {
+      const token = localStorage.getItem('github_token');
+      const gistId = localStorage.getItem('gist_id');
+
+      if (!token || !gistId) {
+        alert('No hay sesión activa. Debes estar autenticado para borrar datos del Gist.');
+        return;
+      }
+
+      // Delete all files from the Gist by setting them to null
+      const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          files: {
+            'products.json': null,
+            'suppliers.json': null,
+            'meta.json': null,
+            // Delete all possible movement files
+            ...Object.fromEntries(
+              Array.from({ length: 24 }, (_, i) => {
+                const year = 2024 + Math.floor(i / 12);
+                const month = String((i % 12) + 1).padStart(2, '0');
+                return [`movements_${year}_${month}.json`, null];
+              })
+            ),
+            // Delete all possible purchase files
+            ...Object.fromEntries(
+              Array.from({ length: 24 }, (_, i) => {
+                const year = 2024 + Math.floor(i / 12);
+                const month = String((i % 12) + 1).padStart(2, '0');
+                return [`purchases_${year}_${month}.json`, null];
+              })
+            ),
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error al borrar Gist: ${response.statusText}`);
+      }
+
+      alert('✓ Datos del Gist borrados exitosamente. Ahora podés importar el backup.');
+    } catch (error) {
+      console.error('Failed to delete Gist data:', error);
+      alert('Error al borrar datos del Gist: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setDeletingGist(false);
+    }
   };
 
   const handleColumnToggle = (column: CSVColumn) => {
@@ -316,6 +387,19 @@ export function DataManagement({
         <p className="section-description">
           Restaura todos tus datos desde un archivo de backup. IMPORTANTE: Después de importar, deberás volver a iniciar sesión para sincronizar los datos a GitHub Gist.
         </p>
+
+        <div className="alert alert-info" style={{ marginBottom: '15px' }}>
+          💡 <strong>Recomendación:</strong> Si tenés datos en GitHub Gist que querés reemplazar, primero borrá los datos del Gist usando el botón de abajo, luego importá el backup.
+        </div>
+
+        <button 
+          className="btn-warning" 
+          onClick={handleDeleteGistData} 
+          disabled={deletingGist}
+          style={{ marginBottom: '15px' }}
+        >
+          {deletingGist ? 'Borrando...' : '🗑️ Borrar Datos del GitHub Gist'}
+        </button>
 
         <input
           ref={backupFileInputRef}
