@@ -137,13 +137,28 @@ export function DataManagement({
     try {
       const backup = backupPreview.backup;
       
-      // Store all data in localStorage
+      // Clear all existing data first
+      localStorage.clear();
+      
+      // Store all data from backup in localStorage
       localStorage.setItem('products', JSON.stringify(backup.products));
       localStorage.setItem('suppliers', JSON.stringify(backup.suppliers));
       localStorage.setItem('movements', JSON.stringify(backup.movements));
       localStorage.setItem('purchases', JSON.stringify(backup.purchases));
       localStorage.setItem('settings', JSON.stringify(backup.settings));
       localStorage.setItem('meta', JSON.stringify(backup.meta));
+
+      // Clear IndexedDB cache to force fresh sync
+      try {
+        const databases = await window.indexedDB.databases();
+        for (const db of databases) {
+          if (db.name) {
+            window.indexedDB.deleteDatabase(db.name);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not clear IndexedDB:', e);
+      }
 
       alert('✓ Backup importado exitosamente. La página se recargará.');
       window.location.reload();
@@ -352,7 +367,7 @@ export function DataManagement({
             </div>
 
             <div className="alert alert-warning">
-              ⚠️ ADVERTENCIA: Importar este backup reemplazará TODOS tus datos actuales. Esta acción no se puede deshacer.
+              ⚠️ ADVERTENCIA: Importar este backup reemplazará TODOS tus datos actuales (local y en GitHub Gist). Esta acción no se puede deshacer. Se recomienda hacer un backup antes de importar.
             </div>
 
             <div className="preview-actions">
