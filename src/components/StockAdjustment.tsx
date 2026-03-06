@@ -50,8 +50,7 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showAdjustmentHistory, setShowAdjustmentHistory] = useState(false);
 
-  // Refs for scrolling to warnings
-  const stockWarningRef = React.useRef<HTMLDivElement>(null);
+  // Ref for scrolling to liquid warning
   const liquidStockWarningRef = React.useRef<HTMLDivElement>(null);
 
   // Load products on mount
