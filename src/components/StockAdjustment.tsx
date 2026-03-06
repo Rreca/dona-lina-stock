@@ -7,7 +7,7 @@ import './StockAdjustment.css';
 
 interface StockAdjustmentProps {
   movements: StockMovement[];
-  onSave?: (movement: StockMovement) => void;
+  onSave?: (movement: Omit<StockMovement, 'id' | 'createdAt'>) => Promise<void>;
   onCancel?: () => void;
 }
 
@@ -222,38 +222,39 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
     setSaveSuccess(false);
 
     try {
-      const movement = movementService.createMovement({
+      // Create adjustment movement data
+      const movementData = {
         date: new Date(formData.date).toISOString(),
         productId: formData.productId,
-        type: 'adjust',
+        type: 'adjust' as const,
         qty: adjustmentQty,
         note: `Ajuste manual: ${formData.reason.trim()}`,
-      });
+      };
+
+      // Call onSave callback for adjustment movement
+      if (onSave) {
+        await onSave(movementData);
+      }
 
       // If deducting liquid from plastic bottle (negative adjustment), create second movement
-      let liquidMovement: StockMovement | undefined;
       if (isPlasticBottle && adjustmentQty < 0 && formData.deductLiquid && formData.liquidProductId && formData.liquidQty) {
         const liquidQty = parseFloat(formData.liquidQty);
         if (!isNaN(liquidQty) && liquidQty > 0) {
-          liquidMovement = movementService.createMovement({
+          const liquidMovementData = {
             date: new Date(formData.date).toISOString(),
             productId: formData.liquidProductId,
-            type: 'adjust',
+            type: 'adjust' as const,
             qty: -liquidQty, // Negative for deduction
             note: `Descuento automático por ${selectedProduct?.name || 'botella'}: ${formData.reason.trim()}`,
-          });
+          };
+          
+          if (onSave) {
+            await onSave(liquidMovementData);
+          }
         }
       }
 
       setSaveSuccess(true);
-
-      // Call onSave callback for both movements
-      if (onSave) {
-        onSave(movement);
-        if (liquidMovement) {
-          onSave(liquidMovement);
-        }
-      }
 
       // Reset form
       setFormData({

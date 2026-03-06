@@ -7,7 +7,7 @@ import './MovementForm.css';
 
 interface MovementFormProps {
   movements: StockMovement[];
-  onSave?: (movement: StockMovement) => void;
+  onSave?: (movement: Omit<StockMovement, 'id' | 'createdAt'>) => Promise<void>;
   onCancel?: () => void;
 }
 
@@ -229,38 +229,39 @@ export function MovementForm({ movements, onSave, onCancel }: MovementFormProps)
     setSaveSuccess(false);
 
     try {
-      const movement = movementService.createMovement({
+      // Create bottle movement data
+      const movementData = {
         date: new Date(formData.date).toISOString(),
         productId: formData.productId,
         type: formData.type,
         qty: parseFloat(formData.qty),
         note: formData.note.trim() || undefined,
-      });
+      };
+
+      // Call onSave callback for bottle movement
+      if (onSave) {
+        await onSave(movementData);
+      }
 
       // If deducting liquid from plastic bottle, create second movement
-      let liquidMovement: StockMovement | undefined;
       if (isPlasticBottle && formData.deductLiquid && formData.liquidProductId && formData.liquidQty) {
         const liquidQty = parseFloat(formData.liquidQty);
         if (!isNaN(liquidQty) && liquidQty > 0) {
-          liquidMovement = movementService.createMovement({
+          const liquidMovementData = {
             date: new Date(formData.date).toISOString(),
             productId: formData.liquidProductId,
             type: formData.type,
             qty: liquidQty,
             note: `Descuento automático por ${selectedProduct?.name || 'botella'}: ${formData.note.trim() || 'sin nota'}`,
-          });
+          };
+          
+          if (onSave) {
+            await onSave(liquidMovementData);
+          }
         }
       }
 
       setSaveSuccess(true);
-
-      // Call onSave callback for both movements
-      if (onSave) {
-        onSave(movement);
-        if (liquidMovement) {
-          onSave(liquidMovement);
-        }
-      }
 
       // Reset form
       setFormData({
