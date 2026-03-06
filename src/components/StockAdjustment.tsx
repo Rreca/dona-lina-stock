@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import * as React from 'react';
 import type { Product, StockMovement } from '../models/types';
 import { productService } from '../services/product-service';
 import { movementService } from '../services/movement-service';
@@ -49,6 +50,10 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showAdjustmentHistory, setShowAdjustmentHistory] = useState(false);
 
+  // Refs for scrolling to warnings
+  const stockWarningRef = React.useRef<HTMLDivElement>(null);
+  const liquidStockWarningRef = React.useRef<HTMLDivElement>(null);
+
   // Load products on mount
   useEffect(() => {
     loadProducts();
@@ -91,6 +96,27 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
   const liquidProducts = useMemo(() => {
     return products.filter((p) => p.category === 'Liquidos');
   }, [products]);
+
+  // Get selected liquid product
+  const selectedLiquidProduct = useMemo(() => {
+    return products.find((p) => p.id === formData.liquidProductId);
+  }, [products, formData.liquidProductId]);
+
+  // Calculate current stock for selected liquid product
+  const liquidCurrentStock = useMemo(() => {
+    if (!formData.liquidProductId) return 0;
+    return movementService.calculateStock(formData.liquidProductId, movements);
+  }, [formData.liquidProductId, movements]);
+
+  // Calculate liquid stock after movement
+  const liquidStockAfterMovement = useMemo(() => {
+    if (!formData.liquidProductId || !formData.liquidQty) return liquidCurrentStock;
+    
+    const liquidQty = parseFloat(formData.liquidQty);
+    if (isNaN(liquidQty)) return liquidCurrentStock;
+
+    return liquidCurrentStock - liquidQty;
+  }, [formData.liquidProductId, formData.liquidQty, liquidCurrentStock]);
 
   // Calculate liquid quantity based on bottle SKU
   const calculateLiquidQty = (bottleQty: number, bottleSku: string | undefined): number => {
@@ -204,6 +230,24 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
     // Validate reason (required for adjustments)
     if (!formData.reason.trim()) {
       newErrors.reason = 'La razón del ajuste es requerida para auditoría';
+    }
+
+    // Validate liquid deduction if enabled and adjustment is negative
+    if (isPlasticBottle && adjustmentQty < 0 && formData.deductLiquid) {
+      if (!formData.liquidProductId) {
+        newErrors.general = 'Debe seleccionar un producto líquido';
+      } else {
+        const liquidQty = parseFloat(formData.liquidQty);
+        if (!formData.liquidQty || isNaN(liquidQty) || liquidQty <= 0) {
+          newErrors.general = 'La cantidad de líquido debe ser mayor a 0';
+        } else if (liquidQty > liquidCurrentStock) {
+          newErrors.general = `No hay suficiente stock de líquido (disponible: ${liquidCurrentStock} ${selectedLiquidProduct?.unit || 'lt'})`;
+          // Scroll to liquid warning
+          setTimeout(() => {
+            liquidStockWarningRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -444,6 +488,26 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
                     ))}
                   </select>
                 </div>
+
+                {selectedLiquidProduct && (
+                  <div className="stock-info" role="status" aria-live="polite" aria-label="Información de stock del líquido">
+                    <div className="stock-info-item">
+                      <span className="label">Stock actual de {selectedLiquidProduct.name}:</span>
+                      <span className="value">{liquidCurrentStock} {selectedLiquidProduct.unit}</span>
+                    </div>
+                    <div className="stock-info-item">
+                      <span className="label">Stock después del movimiento:</span>
+                      <span className={`value ${liquidStockAfterMovement < 0 ? 'negative' : ''}`}>
+                        {liquidStockAfterMovement} {selectedLiquidProduct.unit}
+                      </span>
+                    </div>
+                    {formData.liquidQty && parseFloat(formData.liquidQty) > liquidCurrentStock && (
+                      <div className="stock-warning" role="alert" ref={liquidStockWarningRef}>
+                        ⚠️ No hay suficiente stock de líquido (disponible: {liquidCurrentStock} {selectedLiquidProduct.unit})
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label htmlFor="liquidQty">
