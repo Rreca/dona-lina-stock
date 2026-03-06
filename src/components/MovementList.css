@@ -146,6 +146,12 @@
   font-weight: 500;
 }
 
+.stock-before {
+  color: #666;
+  font-weight: 500;
+  font-size: 14px;
+}
+
 /* Pagination */
 .movement-pagination {
   display: flex;

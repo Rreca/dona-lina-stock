@@ -71,12 +71,55 @@ export function MovementList({ movements, onAddMovement }: MovementListProps) {
     return filteredMovements.slice(startIndex, endIndex);
   }, [filteredMovements, currentPage]);
 
+  // Calculate stock before each movement
+  const movementsWithStock = useMemo(() => {
+    // Sort all movements by date (oldest first) for calculation
+    const sortedMovements = [...movements].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    // Calculate running stock for each product
+    const stockByProduct = new Map<string, number>();
+    const stockBeforeMovement = new Map<string, number>();
+
+    for (const movement of sortedMovements) {
+      const currentStock = stockByProduct.get(movement.productId) || 0;
+      
+      // Store stock BEFORE this movement
+      stockBeforeMovement.set(movement.id, currentStock);
+
+      // Calculate new stock after this movement
+      let newStock = currentStock;
+      switch (movement.type) {
+        case 'in':
+          newStock = currentStock + movement.qty;
+          break;
+        case 'out':
+          newStock = currentStock - movement.qty;
+          break;
+        case 'adjust':
+          newStock = currentStock + movement.qty;
+          break;
+      }
+      
+      stockByProduct.set(movement.productId, newStock);
+    }
+
+    return stockBeforeMovement;
+  }, [movements]);
+
   const totalPages = Math.ceil(filteredMovements.length / itemsPerPage);
 
   // Get product name by ID
   const getProductName = (productId: string): string => {
     const product = products.find((p) => p.id === productId);
     return product ? product.name : 'Producto desconocido';
+  };
+
+  // Get product unit by ID
+  const getProductUnit = (productId: string): string => {
+    const product = products.find((p) => p.id === productId);
+    return product ? product.unit : '';
   };
 
   // Format date
@@ -203,6 +246,7 @@ export function MovementList({ movements, onAddMovement }: MovementListProps) {
               <th>Fecha</th>
               <th>Producto</th>
               <th>Tipo</th>
+              <th>Stock Anterior</th>
               <th>Cantidad</th>
               <th>Nota</th>
             </tr>
@@ -210,7 +254,7 @@ export function MovementList({ movements, onAddMovement }: MovementListProps) {
           <tbody>
             {paginatedMovements.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: 0, border: 'none' }}>
+                <td colSpan={6} style={{ padding: 0, border: 'none' }}>
                   <EmptyState
                     icon="📋"
                     title={
@@ -237,6 +281,9 @@ export function MovementList({ movements, onAddMovement }: MovementListProps) {
                     <span className={`movement-type-badge ${getMovementTypeClass(movement.type)}`}>
                       {formatMovementType(movement.type)}
                     </span>
+                  </td>
+                  <td className="stock-before">
+                    {movementsWithStock.get(movement.id) || 0} {getProductUnit(movement.productId)}
                   </td>
                   <td className={movement.type === 'out' ? 'qty-negative' : 'qty-positive'}>
                     {movement.type === 'out' ? '-' : '+'}
