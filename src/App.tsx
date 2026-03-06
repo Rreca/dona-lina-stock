@@ -270,8 +270,13 @@ function App() {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
-    const updatedMovements = [...movements, newMovement];
-    setMovements(updatedMovements);
+    
+    // Use functional update to ensure we don't lose movements when called multiple times
+    let updatedMovements: StockMovement[] = [];
+    setMovements(prevMovements => {
+      updatedMovements = [...prevMovements, newMovement];
+      return updatedMovements;
+    });
 
     // Sync to Gist
     const token = localStorage.getItem('github_token');
