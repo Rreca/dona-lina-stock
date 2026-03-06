@@ -314,7 +314,7 @@ export function DataManagement({
       <section className="data-section">
         <h4>Importar Backup Completo</h4>
         <p className="section-description">
-          Restaura todos tus datos desde un archivo de backup previamente exportado.
+          Restaura todos tus datos desde un archivo de backup. IMPORTANTE: Después de importar, deberás volver a iniciar sesión para sincronizar los datos a GitHub Gist.
         </p>
 
         <input
@@ -367,7 +367,16 @@ export function DataManagement({
             </div>
 
             <div className="alert alert-warning">
-              ⚠️ ADVERTENCIA: Importar este backup reemplazará TODOS tus datos actuales (local y en GitHub Gist). Esta acción no se puede deshacer. Se recomienda hacer un backup antes de importar.
+              ⚠️ ADVERTENCIA: Importar este backup reemplazará TODOS tus datos locales. Después de importar:
+              <br/>
+              1. Los datos se guardarán en tu navegador
+              <br/>
+              2. Deberás volver a iniciar sesión con tu token de GitHub
+              <br/>
+              3. Los datos se sincronizarán automáticamente a GitHub Gist
+              <br/>
+              <br/>
+              <strong>IMPORTANTE:</strong> Si tenés datos más recientes en GitHub Gist, se perderán al sincronizar el backup.
             </div>
 
             <div className="preview-actions">
