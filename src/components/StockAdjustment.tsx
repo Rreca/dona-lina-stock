@@ -16,6 +16,10 @@ interface FormData {
   productId: string;
   newStock: string;
   reason: string;
+  // Liquid deduction fields
+  deductLiquid: boolean;
+  liquidProductId: string;
+  liquidQty: string;
 }
 
 interface FormErrors {
@@ -33,6 +37,10 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
     productId: '',
     newStock: '',
     reason: '',
+    // Liquid deduction defaults
+    deductLiquid: true,
+    liquidProductId: '',
+    liquidQty: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
@@ -74,6 +82,46 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
     return products.find((p) => p.id === formData.productId);
   }, [products, formData.productId]);
 
+  // Check if selected product is a plastic bottle
+  const isPlasticBottle = useMemo(() => {
+    return selectedProduct?.category === 'Botella Plastica';
+  }, [selectedProduct]);
+
+  // Get liquid products for selection
+  const liquidProducts = useMemo(() => {
+    return products.filter((p) => p.category === 'Liquidos');
+  }, [products]);
+
+  // Calculate liquid quantity based on bottle SKU
+  const calculateLiquidQty = (bottleQty: number, bottleSku: string | undefined): number => {
+    if (!bottleSku) return 0;
+    
+    switch (bottleSku) {
+      case 'BP-4':
+        return bottleQty * 20;
+      case 'BP-1':
+        return bottleQty * 5;
+      case 'BP-3':
+        return bottleQty * 1;
+      case 'BP-2':
+        return bottleQty * 20;
+      default:
+        return 0;
+    }
+  };
+
+  // Auto-calculate liquid quantity when adjustment quantity changes
+  useEffect(() => {
+    if (isPlasticBottle && formData.deductLiquid && adjustmentQty < 0 && selectedProduct?.sku) {
+      // Only auto-calculate for negative adjustments (stock reduction)
+      const calculatedLiquidQty = calculateLiquidQty(Math.abs(adjustmentQty), selectedProduct.sku);
+      setFormData(prev => ({
+        ...prev,
+        liquidQty: calculatedLiquidQty.toString()
+      }));
+    }
+  }, [adjustmentQty, formData.productId, formData.deductLiquid, isPlasticBottle, selectedProduct?.sku]);
+
   // Filter products by search
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
@@ -104,7 +152,7 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
   );
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
 
@@ -182,11 +230,29 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
         note: `Ajuste manual: ${formData.reason.trim()}`,
       });
 
+      // If deducting liquid from plastic bottle (negative adjustment), create second movement
+      let liquidMovement: StockMovement | undefined;
+      if (isPlasticBottle && adjustmentQty < 0 && formData.deductLiquid && formData.liquidProductId && formData.liquidQty) {
+        const liquidQty = parseFloat(formData.liquidQty);
+        if (!isNaN(liquidQty) && liquidQty > 0) {
+          liquidMovement = movementService.createMovement({
+            date: new Date(formData.date).toISOString(),
+            productId: formData.liquidProductId,
+            type: 'adjust',
+            qty: -liquidQty, // Negative for deduction
+            note: `Descuento automático por ${selectedProduct?.name || 'botella'}: ${formData.reason.trim()}`,
+          });
+        }
+      }
+
       setSaveSuccess(true);
 
-      // Call onSave callback
+      // Call onSave callback for both movements
       if (onSave) {
         onSave(movement);
+        if (liquidMovement) {
+          onSave(liquidMovement);
+        }
       }
 
       // Reset form
@@ -195,6 +261,9 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
         productId: '',
         newStock: '',
         reason: '',
+        deductLiquid: true,
+        liquidProductId: '',
+        liquidQty: '',
       });
       setProductSearch('');
     } catch (error) {
@@ -335,6 +404,69 @@ export function StockAdjustment({ movements, onSave, onCancel }: StockAdjustment
             Esta información es importante para auditoría y trazabilidad
           </span>
         </div>
+
+        {/* Liquid deduction section - only for plastic bottles on negative adjustments */}
+        {isPlasticBottle && adjustmentQty < 0 && (
+          <div className="liquid-deduction-section">
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="deductLiquid"
+                  checked={formData.deductLiquid}
+                  onChange={(e) => setFormData(prev => ({ ...prev, deductLiquid: e.target.checked }))}
+                  disabled={saving}
+                />
+                <span>Descontar líquido</span>
+              </label>
+            </div>
+
+            {formData.deductLiquid && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="liquidProduct">
+                    Producto Líquido <span className="required">*</span>
+                  </label>
+                  <select
+                    id="liquidProduct"
+                    name="liquidProductId"
+                    value={formData.liquidProductId}
+                    onChange={handleChange}
+                    disabled={saving}
+                    aria-required="true"
+                  >
+                    <option value="">Seleccione un líquido...</option>
+                    {liquidProducts.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} {product.sku ? `(${product.sku})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="liquidQty">
+                    Cantidad de Líquido (Litros) <span className="required">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="liquidQty"
+                    name="liquidQty"
+                    value={formData.liquidQty}
+                    onChange={handleChange}
+                    disabled={saving}
+                    step="0.01"
+                    placeholder="0.00"
+                    aria-required="true"
+                  />
+                  <span className="field-hint">
+                    Cantidad calculada automáticamente según el SKU de la botella (editable)
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="form-actions">
           <button type="submit" className="btn-primary" disabled={saving}>

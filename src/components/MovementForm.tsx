@@ -17,6 +17,10 @@ interface FormData {
   type: MovementType;
   qty: string;
   note: string;
+  // Liquid deduction fields
+  deductLiquid: boolean;
+  liquidProductId: string;
+  liquidQty: string;
 }
 
 interface FormErrors {
@@ -35,6 +39,10 @@ export function MovementForm({ movements, onSave, onCancel }: MovementFormProps)
     type: 'in',
     qty: '',
     note: '',
+    // Liquid deduction defaults
+    deductLiquid: true,
+    liquidProductId: '',
+    liquidQty: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
@@ -85,6 +93,48 @@ export function MovementForm({ movements, onSave, onCancel }: MovementFormProps)
   const selectedProduct = useMemo(() => {
     return products.find((p) => p.id === formData.productId);
   }, [products, formData.productId]);
+
+  // Check if selected product is a plastic bottle
+  const isPlasticBottle = useMemo(() => {
+    return selectedProduct?.category === 'Botella Plastica';
+  }, [selectedProduct]);
+
+  // Get liquid products for selection
+  const liquidProducts = useMemo(() => {
+    return products.filter((p) => p.category === 'Liquidos');
+  }, [products]);
+
+  // Calculate liquid quantity based on bottle SKU
+  const calculateLiquidQty = (bottleQty: number, bottleSku: string | undefined): number => {
+    if (!bottleSku) return 0;
+    
+    switch (bottleSku) {
+      case 'BP-4':
+        return bottleQty * 20;
+      case 'BP-1':
+        return bottleQty * 5;
+      case 'BP-3':
+        return bottleQty * 1;
+      case 'BP-2':
+        return bottleQty * 20;
+      default:
+        return 0;
+    }
+  };
+
+  // Auto-calculate liquid quantity when bottle quantity or product changes
+  useEffect(() => {
+    if (isPlasticBottle && formData.deductLiquid && formData.qty && selectedProduct?.sku) {
+      const bottleQty = parseFloat(formData.qty);
+      if (!isNaN(bottleQty)) {
+        const calculatedLiquidQty = calculateLiquidQty(bottleQty, selectedProduct.sku);
+        setFormData(prev => ({
+          ...prev,
+          liquidQty: calculatedLiquidQty.toString()
+        }));
+      }
+    }
+  }, [formData.qty, formData.productId, formData.deductLiquid, isPlasticBottle, selectedProduct?.sku]);
 
   // Filter products by search
   const filteredProducts = useMemo(() => {
@@ -187,11 +237,29 @@ export function MovementForm({ movements, onSave, onCancel }: MovementFormProps)
         note: formData.note.trim() || undefined,
       });
 
+      // If deducting liquid from plastic bottle, create second movement
+      let liquidMovement: StockMovement | undefined;
+      if (isPlasticBottle && formData.deductLiquid && formData.liquidProductId && formData.liquidQty) {
+        const liquidQty = parseFloat(formData.liquidQty);
+        if (!isNaN(liquidQty) && liquidQty > 0) {
+          liquidMovement = movementService.createMovement({
+            date: new Date(formData.date).toISOString(),
+            productId: formData.liquidProductId,
+            type: formData.type,
+            qty: liquidQty,
+            note: `Descuento automático por ${selectedProduct?.name || 'botella'}: ${formData.note.trim() || 'sin nota'}`,
+          });
+        }
+      }
+
       setSaveSuccess(true);
 
-      // Call onSave callback
+      // Call onSave callback for both movements
       if (onSave) {
         onSave(movement);
+        if (liquidMovement) {
+          onSave(liquidMovement);
+        }
       }
 
       // Reset form
@@ -201,6 +269,9 @@ export function MovementForm({ movements, onSave, onCancel }: MovementFormProps)
         type: 'in',
         qty: '',
         note: '',
+        deductLiquid: true,
+        liquidProductId: '',
+        liquidQty: '',
       });
       setProductSearch('');
     } catch (error) {
@@ -353,6 +424,69 @@ export function MovementForm({ movements, onSave, onCancel }: MovementFormProps)
           />
           {errors.qty && <span className="error-message" id="qty-error" role="alert">{errors.qty}</span>}
         </div>
+
+        {/* Liquid deduction section - only for plastic bottles on out/adjust */}
+        {isPlasticBottle && (formData.type === 'out' || formData.type === 'adjust') && (
+          <div className="liquid-deduction-section">
+            <div className="form-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="deductLiquid"
+                  checked={formData.deductLiquid}
+                  onChange={(e) => setFormData(prev => ({ ...prev, deductLiquid: e.target.checked }))}
+                  disabled={saving}
+                />
+                <span>Descontar líquido</span>
+              </label>
+            </div>
+
+            {formData.deductLiquid && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="liquidProduct">
+                    Producto Líquido <span className="required">*</span>
+                  </label>
+                  <select
+                    id="liquidProduct"
+                    name="liquidProductId"
+                    value={formData.liquidProductId}
+                    onChange={handleChange}
+                    disabled={saving}
+                    aria-required="true"
+                  >
+                    <option value="">Seleccione un líquido...</option>
+                    {liquidProducts.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} {product.sku ? `(${product.sku})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="liquidQty">
+                    Cantidad de Líquido (Litros) <span className="required">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="liquidQty"
+                    name="liquidQty"
+                    value={formData.liquidQty}
+                    onChange={handleChange}
+                    disabled={saving}
+                    step="0.01"
+                    placeholder="0.00"
+                    aria-required="true"
+                  />
+                  <span className="field-hint">
+                    Cantidad calculada automáticamente según el SKU de la botella (editable)
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="form-group">
           <label htmlFor="note">Nota (opcional)</label>
