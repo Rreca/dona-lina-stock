@@ -238,13 +238,23 @@ export function MovementForm({ movements, onSave, onCancel }: MovementFormProps)
         note: formData.note.trim() || undefined,
       };
 
+      console.log('Saving bottle movement:', movementData);
+
       // Call onSave callback for bottle movement
       if (onSave) {
         await onSave(movementData);
+        console.log('Bottle movement saved successfully');
       }
 
       // If deducting liquid from plastic bottle, create second movement
       if (isPlasticBottle && formData.deductLiquid && formData.liquidProductId && formData.liquidQty) {
+        console.log('Checking liquid deduction conditions:', {
+          isPlasticBottle,
+          deductLiquid: formData.deductLiquid,
+          liquidProductId: formData.liquidProductId,
+          liquidQty: formData.liquidQty
+        });
+        
         const liquidQty = parseFloat(formData.liquidQty);
         if (!isNaN(liquidQty) && liquidQty > 0) {
           const liquidMovementData = {
@@ -255,8 +265,11 @@ export function MovementForm({ movements, onSave, onCancel }: MovementFormProps)
             note: `Descuento automático por ${selectedProduct?.name || 'botella'}: ${formData.note.trim() || 'sin nota'}`,
           };
           
+          console.log('Saving liquid movement:', liquidMovementData);
+          
           if (onSave) {
             await onSave(liquidMovementData);
+            console.log('Liquid movement saved successfully');
           }
         }
       }
